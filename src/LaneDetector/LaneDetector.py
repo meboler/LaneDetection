@@ -90,8 +90,11 @@ class LaneDetector:
         
         Run the entire lane detection process
         """
+        # Convert to HSL and filter
         filtered_img = self.filter(img) 
+        # Warp to overhead
         ipm_img = self.perspective_warp(filtered_img)
+        # Detect lines
         (left, center, right) = self.sliding_window(ipm_img)
     
     def perspective_warp(self, img):
@@ -116,7 +119,7 @@ class LaneDetector:
         return warped_img
     
     def get_hist(self, img):
-        hist = np.sum(img[img.shape[0]//2:, :], axis=0)
+        hist = np.sum(img[img.shape[0]//1.5:, :], axis=0)
         return hist
 
     def filter(self, img):
@@ -128,11 +131,15 @@ class LaneDetector:
         """
         SOBEL_MINIMUM_THRESHOLD = 25
         S_MINIMUM_THRESHOLD = 100
-
-        hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS).astype(np.float)
+        
+        """
+        hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
         h_channel = hls[:,:,0]
+        print np.mean(h_channel)
         l_channel = hls[:,:,1]
+        print np.mean(l_channel)
         s_channel = hls[:,:,2]
+        print np.mean(s_channel)
 
         sobel_x = cv2.Sobel(l_channel, cv2.CV_64F, 1, 1)
         sobel_x = np.absolute(sobel_x)
@@ -145,11 +152,58 @@ class LaneDetector:
 
         combined_thresholded = np.zeros_like(sobel_thresholded)
         combined_thresholded[(sobel_thresholded == 1) | (s_thresholded == 1)] = 1
-        return combined_thresholded
+        """
+        # Try to find white and yellow regions for lanes
+        hsv_mask = self.color_threshold(img)
+
+        # Because of light, white will not get picked up all the time
+        # We fallback to a gradient check and binary or them
+        gradient_mask = self.gradient_threshold(img)
+
+        # Now also perform gradient thresholding
+        # ...
+        mask = cv2.bitwise_or(hsv_mask, gradient_mask)
+        return mask
+
+    def gradient_threshold(self, img):
+        gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        return self.abs_sobel(gray_img)
+
+    def abs_sobel(self, img, x_dir=True):
+        sobel = cv2.Sobel(img, cv2.CV_64F, 1, 0, 15) 
+        sobel_abs = np.absolute(sobel)
+        sobel_scaled = np.uint8(255 * sobel_abs / np.max(sobel_abs))
+        gradient_mask = np.zeros_like(sobel_scaled)
+        thresh_min = np.array([10], dtype = np.uint8)
+        thresh_max = np.array([255], dtype = np.uint8)
+        gradient_mask = cv2.inRange(sobel_scaled, thresh_min, thresh_max)
+        return gradient_mask
+
+    def mag_sobel(self, img):
+        return
+
+    def color_threshold(self, img):
+        hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+        hsv_mask = cv2.bitwise_or(self.isolate_white(hsv), self.isolate_yellow(hsv))
+        return hsv_mask
+
+    def isolate_yellow(self, img):
+        # img in HSV
+        low_threshold = np.array([25*255/360/2, 25*255/100, 25*255/100], dtype = np.uint8)
+        high_threshold = np.array([65*255/360/2, 70*255/100, 75*255/100], dtype = np.uint8)
+        yellow_mask = cv2.inRange(img, low_threshold, high_threshold)
+        return yellow_mask
+
+    def isolate_white(self, img):
+        # img in HSV
+        low_threshold = np.array([0*255/360/2, 0*255/100, 25*255/100], dtype = np.uint8)
+        high_threshold = np.array([360*255/360/2, 40*255/100, 40*255/100], dtype = np.uint8)
+        white_mask = cv2.inRange(img, low_threshold, high_threshold)
+        return white_mask
     
     def sliding_window(self, img):
         nwindows = 9
-        margin = 75
+        margin = 50
         minpix = 1
 
         histogram = self.get_hist(img)

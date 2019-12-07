@@ -2,8 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 
-import LaneDetector
-
+import LaneDetector 
 if __name__ == '__main__':
     np.set_printoptions(precision=5)
     np.set_printoptions(suppress=True)
@@ -29,7 +28,8 @@ if __name__ == '__main__':
                     [0, 0, 1]], np.float32)
 
     D = np.asarray([0, 0, 0, 0, 0], np.float32)
-    FOV_h = np.radians(91.2) FOV_v = np.radians(65.5) 
+    FOV_h = np.radians(91.2) 
+    FOV_v = np.radians(65.5) 
     params = LaneDetector.CameraParams()
     params.K = K
     params.D = D
@@ -39,25 +39,22 @@ if __name__ == '__main__':
     params.width = width
 
     det = LaneDetector.LaneDetector(R, t, params)
-    warped_img = det.perspective_warp(img)
-    filtered_img = det.filter(warped_img)
-    (left, center, right) = det.sliding_window(filtered_img)
-    print left
-    print center
-    print right
+    mask_img = det.filter(img)
+    warped_img = det.perspective_warp(mask_img)
+    (left, center, right) = det.sliding_window(warped_img)
 
     plt.figure(1)
     plt.subplot(221)
     plt.imshow(img)
 
     plt.subplot(222)
-    plt.imshow(warped_img)
-    
+    plt.imshow(mask_img, cmap='gray')
+
     plt.subplot(223)
-    plt.imshow(filtered_img)
+    plt.imshow(det.draw_lanes(img, left, right))
 
     plt.subplot(224)
-    plt.imshow(det.draw_lanes(img, left, right))
+    plt.plot(det.get_hist(warped_img))
 
     plt.show()
 
