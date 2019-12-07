@@ -2,25 +2,53 @@
 
 import rospy
 import cv2
-import numpy
+import numpy as np
+import sys
 
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 
 from std_msgs.msg import Float32MultiArray, MultiArrayDimension
 
-from LaneDetector
+from LaneDetector.LaneDetector import *
 
 class lane_detector:
     def __init__(self):
         self.bridge = CvBridge()
-        self.Detector = LaneDetector()
+
+        """ Set up all needed params """
+        height = 480
+        width = 640
+
+        h = 1.518 # meters
+        t = np.asarray([0, 0, -h], np.float32)
+        # Map from world frame to camera frame
+        R = np.asarray([[0, -1, 0],
+                        [0, 0, -1],
+                        [1, 0, 0]], np.float32)
+        
+        K = np.asarray([[617.2716, 0, 327.2818],
+                        [0, 617.1263, 245.0939],
+                        [0, 0, 1]], np.float32)
+        
+        D = np.asarray([0, 0, 0, 0, 0], np.float32)
+        FOV_h = np.radians(91.2) 
+        FOV_v = np.radians(65.5) 
+        params = CameraParams()
+        params.K = K
+        params.D = D
+        params.FOV_h = FOV_h
+        params.FOV_v = FOV_v
+        params.height = height
+        params.width = width
+        self.Detector = LaneDetector(R, t, params)
         # TODO: Configure via json
-        self.image_sub = rospy.Subscriber("camera/image_raw", Image, self.callback)
+        self.image_sub = rospy.Subscriber("camera/color/image_raw", Image, self.callback)
         # publish coefficients of spline as array
-        self.spline_pub = rospy.Publisher("lane_splines", Float32MultiArray)
+        #self.spline_pub = rospy.Publisher("lane_splines", Float32MultiArray)
         # publish top down view for visualization
-        self.image_pub = rospy.Publisher("top_down", Image)
+        self.visualization_pub = rospy.Publisher("lane_detector/visualization", Image)
+        self.filter_pub = rospy.Publisher("lane_detector/filtered", Image)
 
 
         float_msg = Float32MultiArray()
@@ -38,15 +66,13 @@ class lane_detector:
         self.float_msg = float_msg
 
     def callback(self, data):
-        cv_img = self.bridge.imgmsg_to_cv2(data, "bgr8")
-        warped_image = Detector.perspective_warp(cv_img)
-        filtered_image = Detector.filter(warped_image)
-        splines = Detector.fit_splines(filtered_image)
-
-        try:
-            self.image_pub.publish(self.bridge.cv2_to_imgmsg(filtered_image, 'mono8'))
-            self.spline_pub.publish(self.float_msg)
-
+        cv_img = self.bridge.imgmsg_to_cv2(data, "rgb8")
+        warped_image = self.Detector.perspective_warp(cv_img)
+        filtered_image = self.Detector.filter(warped_image)
+        (left, center, right) = self.Detector.sliding_window(filtered_image)
+        lane_image = self.Detector.draw_lanes(cv_img, left, right)
+        self.visualization_pub.publish(self.bridge.cv2_to_imgmsg(lane_image, 'rgb8'))
+        self.filter_pub.publish(self.bridge.cv2_to_imgmsg(filtered_image*255, 'mono8'))
 
 def main(args):
     det = lane_detector()
