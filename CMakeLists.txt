@@ -57,3 +57,5 @@ catkin_package(
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 # )
 
+install(PROGRAMS scripts/lane_detection_node.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
