@@ -129,8 +129,8 @@ class LaneDetector:
         This function applies a series of filters and binarization to 
         mask out all pixels not corresponding to road lanes.
         """
-        SOBEL_MINIMUM_THRESHOLD = 25
-        S_MINIMUM_THRESHOLD = 100
+        #SOBEL_MINIMUM_THRESHOLD = 25
+        #S_MINIMUM_THRESHOLD = 100
         
         """
         hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
@@ -154,7 +154,7 @@ class LaneDetector:
         combined_thresholded[(sobel_thresholded == 1) | (s_thresholded == 1)] = 1
         """
         # Try to find white and yellow regions for lanes
-        hsv_mask = self.color_threshold(img)
+        #hsv_mask = self.color_threshold(img)
 
         # Because of light, white will not get picked up all the time
         # We fallback to a gradient check and binary or them
@@ -162,25 +162,39 @@ class LaneDetector:
 
         # Now also perform gradient thresholding
         # ...
-        mask = cv2.bitwise_or(hsv_mask, gradient_mask)
-        return mask
+        #mask = cv2.bitwise_or(hsv_mask, gradient_mask)
+        return gradient_mask
+        # return mask
 
     def gradient_threshold(self, img):
         gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
         return self.abs_sobel(gray_img)
 
     def abs_sobel(self, img, x_dir=True):
-        sobel = cv2.Sobel(img, cv2.CV_64F, 1, 0, 15) 
+        sobel = cv2.Sobel(img, cv2.CV_64F, x_dir, not x_dir, 15) 
         sobel_abs = np.absolute(sobel)
         sobel_scaled = np.uint8(255 * sobel_abs / np.max(sobel_abs))
         gradient_mask = np.zeros_like(sobel_scaled)
-        thresh_min = np.array([15], dtype = np.uint8)
-        thresh_max = np.array([255], dtype = np.uint8)
+        thresh_min = np.array([5], dtype = np.uint8)
+        thresh_max = np.array([120], dtype = np.uint8)
         gradient_mask = cv2.inRange(sobel_scaled, thresh_min, thresh_max)
         return gradient_mask
 
     def mag_sobel(self, img):
-        return
+        sx = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=15)
+        sy = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=15)
+        sxy = np.sqrt(np.square(sx) + np.square(sy))
+        scaled_sxy = np.uint8(255 * sxy / np.max(sxy))
+        thresh_min = np.array([5], dtype = np.uint8)
+        thresh_max = np.array([120], dtype = np.uint8)
+        sxy_binary = cv2.inRange(sxy, thresh_min, thresh_max)
+        return sxy_binary
+
+    def blur_mask(self, mask_img):
+        med_img = cv2.medianBlur(mask_img, 5)
+        gauss_img = cv2.GaussianBlur(med_img, (13,13), 0)
+        gauss_binary = cv2.inRange(gauss_img, 80, 255)
+        return gauss_img
 
     def color_threshold(self, img):
         hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
@@ -189,8 +203,10 @@ class LaneDetector:
 
     def isolate_yellow(self, img):
         # img in HSV
-        low_threshold = np.array([25*255/360/2, 25*255/100, 25*255/100], dtype = np.uint8)
-        high_threshold = np.array([65*255/360/2, 70*255/100, 75*255/100], dtype = np.uint8)
+        low_threshold = np.array([20, 100, 100], dtype = np.uint8)
+        #low_threshold = np.array([25*255/360/2, 25*255/100, 25*255/100], dtype = np.uint8)
+        high_threshold = np.array([45, 255, 255], dtype = np.uint8)
+        #high_threshold = np.array([65*255/360/2, 70*255/100, 75*255/100], dtype = np.uint8)
         yellow_mask = cv2.inRange(img, low_threshold, high_threshold)
         return yellow_mask
 
@@ -202,14 +218,15 @@ class LaneDetector:
         return white_mask
     
     def sliding_window(self, img, world_coords = False):
-        nwindows = 11
-        margin = 150
-        minpix = 2
+        nwindows = 7
+        margin = 50
+        buffer = 100
+        minpix = 1
 
         histogram = self.get_hist(img)
         midpoint = int(histogram.shape[0] / 2)
-        leftx_base = np.argmax(histogram[:midpoint])
-        rightx_base = np.argmax(histogram[midpoint:]) + midpoint
+        leftx_base = np.argmax(histogram[:midpoint-buffer])
+        rightx_base = np.argmax(histogram[midpoint+buffer:]) + midpoint + buffer
         leftx_current = leftx_base
         rightx_current = rightx_base
 
@@ -249,9 +266,11 @@ class LaneDetector:
 
         # Change on if you want world or camera coords
         left_fit = np.polyfit(left_y, left_x, 2)
-        left_fit_world = np.polyfit(left_world_xy[1,:], left_world_xy[0,:], 2)
+        #left_fit = self.ransac_polyfit(left_y, left_x, k=1, t=1)
+        #left_fit_world = np.polyfit(left_world_xy[1,:], left_world_xy[0,:], 2)
         right_fit = np.polyfit(right_y, right_x, 2)
-        right_fit_world = np.polyfit(right_world_xy[1,:], right_world_xy[0,:], 2)
+        #right_fit_world = np.polyfit(right_world_xy[1,:], right_world_xy[0,:], 2)
+        #right_fit = self.ransac_polyfit(right_y, right_x, k=1, t=1)
 
         if world_coords is True:
             left_fit = left_fit_world
@@ -292,6 +311,16 @@ class LaneDetector:
             plot_y = np.linspace(0, unwarped_img.shape[0]-1, unwarped_img.shape[0])
             left_fitx = left_fit[0]*plot_y**2 + left_fit[1]*plot_y + left_fit[2]
             right_fitx = right_fit[0]*plot_y**2 + right_fit[1]*plot_y + right_fit[2]
+
+            key_left1 = left_fitx[-1]
+            key_right1 = right_fitx[-1]
+
+            key_left2 = left_fitx[0]
+            key_right2 = right_fitx[0]
+
+            if (key_left1 > key_right1 or key_left2 > key_right2):
+                print "LOLNO"
+                raise Exception('lol', 'lol')
             
             left = np.array([np.transpose(np.vstack([left_fitx, plot_y]))])
             right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, plot_y])))])
@@ -309,6 +338,7 @@ class LaneDetector:
         plot_y = plot_y[::-1]
         # Note: This polynomial works in 
         center_fit_x = center_fit[0]*plot_y**2 + center_fit[1]*plot_y + center_fit[2]
+
         center_pts = np.vstack([center_fit_x, plot_y])
         world_pts = self.pixel_to_world(center_pts)
         n_pts = world_pts.shape[1]
@@ -318,7 +348,7 @@ class LaneDetector:
         for i in range(n_out):
             x1 = world_pts[0, i]
             y1 = world_pts[1, i]
-            s = 'Point ' + repr(i) + '= x:' + repr(x1) + ' y:' + repr(y1)
+            # s = 'Point ' + repr(i) + '= x:' + repr(x1) + ' y:' + repr(y1)
             x2 = world_pts[0, i+1]
             y2 = world_pts[1, i+1]
             dx = x2 - x1
@@ -360,3 +390,17 @@ class LaneDetector:
         # And then we convert them to the world (local NWU) frame
         xy_w = np.dot(np.linalg.inv(self.R), points_c)[:2,:]
         return xy_w
+
+    def ransac_polyfit(self, x, y, k=10, t=0.5):
+        besterr = np.inf
+        bestfit = None
+        for kk in range(k):
+            maybeinliers = np.random.randint(len(x), size=len(x)//(3/2))
+            maybemodel = np.polyfit(x[maybeinliers], y[maybeinliers], 2)
+            alsoinliers = np.abs(np.polyval(maybemodel, x)-y) < t
+            bettermodel = np.polyfit(x[alsoinliers], y[alsoinliers], 2)
+            thiserr = np.sum(np.abs(np.polyval(bettermodel, x[alsoinliers])-y[alsoinliers]))
+            if thiserr < besterr:
+                bestfit = bettermodel
+                besterr = thiserr
+        return bestfit

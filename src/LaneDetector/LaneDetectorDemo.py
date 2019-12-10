@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
-
 import LaneDetector 
 if __name__ == '__main__':
     np.set_printoptions(precision=5)
@@ -40,7 +39,8 @@ if __name__ == '__main__':
 
     det = LaneDetector.LaneDetector(R, t, params)
     mask_img = det.filter(img)
-    warped_img = det.perspective_warp(mask_img)
+    blur_img = det.blur_mask(mask_img)
+    warped_img = det.perspective_warp(blur_img)
     (left, center, right) = det.sliding_window(warped_img)
     waypoints = det.generate_waypoints(img, center)
 
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     plt.imshow(img)
 
     plt.subplot(222)
-    plt.imshow(mask_img, cmap='gray')
+    plt.imshow(blur_img, cmap='gray')
 
     plt.subplot(223)
     plt.imshow(warped_img, cmap='gray')

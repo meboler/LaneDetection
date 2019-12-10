@@ -16,8 +16,7 @@ from LaneDetector.LaneDetector import *
 
 class lane_detector:
     def __init__(self):
-        self.bridge = CvBridge()
-
+        self.bridge = CvBridge() 
         """ Set up all needed params """
         height = 480
         width = 640
@@ -50,36 +49,39 @@ class lane_detector:
         #self.spline_pub = rospy.Publisher("lane_splines", Float32MultiArray)
         # publish top down view for visualization
         self.visualization_pub = rospy.Publisher("lane_detector/visualization", Image)
+        self.mask_pub = rospy.Publisher("lane_detector/mask", Image)
         self.nav_pub = rospy.Publisher("lane_detector/waypoints", Path)
 
     def callback(self, data):
         cv_img = self.bridge.imgmsg_to_cv2(data, "rgb8")
         # Run pipeline
         mask_img = self.Detector.filter(cv_img)
-        warped_image = self.Detector.perspective_warp(mask_img)
-        (left, center, right) = self.Detector.sliding_window(warped_image)
-        waypoints = self.Detector.generate_waypoints(cv_img, center)
-
-        # Generate publishing stuff
-        lane_image = self.Detector.draw_lanes(cv_img, left, right)
-
-        path = Path()
-        path.header = data.header
-        num_points = waypoints.shape[1]
-        for i in range(num_points):
-            x = waypoints[0,i]
-            y = waypoints[1,i]
-            theta = waypoints[2,i]
-            w = np.cos(theta/2)
-            z = np.sin(theta/2)
-
-            position = Point(x, y, 0)
-            orientation = Quaternion(0, 0, z, w)
-            pose = PoseStamped(position, orientation)
-            path.poses.append(pose)
+        blur_img = self.Detector.blur_mask(mask_img)
+        warped_image = self.Detector.perspective_warp(blur_img)
+        try:
+            (left, center, right) = self.Detector.sliding_window(warped_image)
+            waypoints = self.Detector.generate_waypoints(cv_img, center)
+            # Generate publishing stuff
+            lane_image = self.Detector.draw_lanes(cv_img, left, right)
+            path = Path()
+            path.header = data.header
+            num_points = waypoints.shape[1]
+            for i in range(num_points):
+                x = waypoints[0,i]
+                y = waypoints[1,i]
+                theta = waypoints[2,i]
+                w = np.cos(theta/2)
+                z = np.sin(theta/2)
+                position = Point(x, y, 0)
+                orientation = Quaternion(0, 0, z, w)
+                pose = PoseStamped(position, orientation)
+                path.poses.append(pose)
+            self.nav_pub.publish(path)
+            self.visualization_pub.publish(self.bridge.cv2_to_imgmsg(lane_image, 'rgb8'))
+        except:
+            print("Failed to generate path")
         # Publish messages
-        self.visualization_pub.publish(self.bridge.cv2_to_imgmsg(lane_image, 'rgb8'))
-        self.nav_pub.publish(path)
+        self.mask_pub.publish(self.bridge.cv2_to_imgmsg(warped_image, 'mono8'))
 
 def main(args):
     det = lane_detector()
