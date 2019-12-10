@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import rospy
+import rospy 
 import cv2
 import numpy as np
 import sys
@@ -8,6 +8,7 @@ import sys
 from sensor_msgs.msg import Image
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped, Point, Quaternion
+from geometry_msgs.msg import Pose
 from cv_bridge import CvBridge
 
 from std_msgs.msg import Float32MultiArray, MultiArrayDimension
@@ -50,8 +51,7 @@ class lane_detector:
         # publish top down view for visualization
         self.visualization_pub = rospy.Publisher("lane_detector/visualization", Image)
         self.mask_pub = rospy.Publisher("lane_detector/mask", Image)
-        self.nav_pub = rospy.Publisher("lane_detector/waypoints", Path)
-
+        self.nav_pub = rospy.Publisher("lane_detector/waypoints", Path) 
     def callback(self, data):
         cv_img = self.bridge.imgmsg_to_cv2(data, "rgb8")
         # Run pipeline
@@ -67,19 +67,39 @@ class lane_detector:
             path.header = data.header
             num_points = waypoints.shape[1]
             for i in range(num_points):
-                x = waypoints[0,i]
-                y = waypoints[1,i]
+                x = float(waypoints[0,i])
+                y = float(waypoints[1,i])
                 theta = waypoints[2,i]
                 w = np.cos(theta/2)
                 z = np.sin(theta/2)
-                position = Point(x, y, 0)
-                orientation = Quaternion(0, 0, z, w)
-                pose = PoseStamped(position, orientation)
+		
+		pose = PoseStamped()
+		p = Pose()
+		p.position.x = x
+		p.position.y = y
+		p.position.z = 0
+		p.orientation.x = 0.0
+		p.orientation.y = 0.0
+		p.orientation.z = z
+		p.orientation.w = w
+		pose.pose = p
+		"""
+		pose.pose.position.x = x
+		pose.pose.position.y = y
+		pose.pose.position.z = 0
+		pose.pose.orientation.x = 0
+		pose.pose.orientation.y = 0
+		pose.pose.orientaion.z = 0
+		pose.pose.orientation.w = 1
+		"""
+		pose.header = data.header
                 path.poses.append(pose)
+	    
             self.nav_pub.publish(path)
-            self.visualization_pub.publish(self.bridge.cv2_to_imgmsg(lane_image, 'rgb8'))
+            #self.visualization_pub.publish(self.bridge.cv2_to_imgmsg(lane_image, 'rgb8'))
         except:
             print("Failed to generate path")
+	    rospy.logerr("LOLNO")
         # Publish messages
         self.mask_pub.publish(self.bridge.cv2_to_imgmsg(warped_image, 'mono8'))
 
