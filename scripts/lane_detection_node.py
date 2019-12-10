@@ -96,7 +96,7 @@ class lane_detector:
                 path.poses.append(pose)
 	    
             self.nav_pub.publish(path)
-            #self.visualization_pub.publish(self.bridge.cv2_to_imgmsg(lane_image, 'rgb8'))
+            self.visualization_pub.publish(self.bridge.cv2_to_imgmsg(lane_image, 'rgb8'))
         except:
             print("Failed to generate path")
 	    rospy.logerr("LOLNO")
