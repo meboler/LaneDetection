@@ -55,8 +55,10 @@ class LaneDetector:
         self.top_limit = 250 # 260
         self.bottom_left_limit = 0
         self.bottom_right_limit = 640
-        self.top_left_limit = 180
-        self.top_right_limit = 460
+        #self.top_left_limit = 180
+        self.top_left_limit = 150
+        #self.top_right_limit = 460
+        self.top_right_limit = 490
         self.src_pixels = np.asarray(
             [[self.top_left_limit, self.top_limit],
              [self.top_right_limit, self.top_limit],
@@ -221,24 +223,20 @@ class LaneDetector:
         # Hue : gimp (0 : 360), cv2 (0 : 179)
         # Sat : gimp (0 : 100), cv2 (0 : 255)
         # Val : gimp (0 : 100), cv2 (0 : 255)
-        low_threshold = np.array([150 // 2, 20 * 255 // 100, 0 * 255 // 100], dtype = np.uint8)
-        high_threshold = np.array([175 // 2, 40 * 255 // 100, 100 * 255 // 100], dtype = np.uint8)
+        low_threshold = np.array([150 // 2, 15 * 255 // 100, 0 * 255 // 100], dtype = np.uint8)
+        high_threshold = np.array([180 // 2, 40 * 255 // 100, 100 * 255 // 100], dtype = np.uint8)
         green_mask = cv2.inRange(img, low_threshold, high_threshold)
         return green_mask
     def sliding_window(self, img, world_coords = False):
-        nwindows = 7
-        margin = 50
+        nwindows = 10
+        margin = 75
         buffer = 0
         minpix = 1
         
         histogram = self.get_hist(img)
         midpoint = int(histogram.shape[0] / 2)
         leftx_base = np.argmax(histogram[:midpoint-buffer])
-        print 'Starting left point'
-        print leftx_base
         rightx_base = np.argmax(histogram[midpoint+buffer:]) + midpoint + buffer
-        print 'Starting right point'
-        print rightx_base
         leftx_current = leftx_base
         rightx_current = rightx_base
 
@@ -252,29 +250,17 @@ class LaneDetector:
         right_lane_inds = []
 
         for window in range(nwindows):
-            print 'Window : ' + str(window)
             y_low = img.shape[0] - (window+1)*window_height
-            print 'y bounds'
-            print y_low
             y_high = img.shape[0] - window*window_height
-            print y_high
             xleft_low = leftx_current - margin
             xleft_high = leftx_current + margin
-            print 'Left x bounds'
-            print xleft_low
-            print xleft_high
 
             xright_low = rightx_current - margin
             xright_high = rightx_current + margin
-            print 'Right x bounds'
-            print xright_low
-            print xright_high
 
             good_left_inds = ((nonzero_y >= y_low) & (nonzero_y < y_high) & (nonzero_x >= xleft_low) & (nonzero_x < xleft_high)).nonzero()[0]
             good_right_inds = ((nonzero_y >= y_low) & (nonzero_y < y_high) & (nonzero_x >= xright_low) & (nonzero_x < xright_high)).nonzero()[0]
             
-            print good_left_inds
-            print good_right_inds
 
             left_lane_inds.append(good_left_inds)
             right_lane_inds.append(good_right_inds)

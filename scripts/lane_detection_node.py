@@ -22,12 +22,12 @@ class lane_detector:
         height = 480
         width = 640
 
-        h = 1.518 # meters
+        h = 0.13
         t = np.asarray([0, 0, -h], np.float32)
         # Map from world frame to camera frame
         R = np.asarray([[0, -1, 0],
-                        [0, 0, -1],
-                        [1, 0, 0]], np.float32)
+                        [np.sin(p), 0, -1*np.cos(p)],
+                        [1*np.cos(p), 0, np.sin(p)]], np.float32)
         
         K = np.asarray([[617.2716, 0, 327.2818],
                         [0, 617.1263, 245.0939],
