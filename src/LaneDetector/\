@@ -51,12 +51,12 @@ class LaneDetector:
         width = self.params.width
         self.ipm_top = self.vanishing_point[1] + 20 # experiment
 
-        self.bottom_limit = 340
-        self.top_limit = 250 # 260
+        self.bottom_limit = 350
+        self.top_limit = 480 # 260
         self.bottom_left_limit = 0
         self.bottom_right_limit = 640
-        self.top_left_limit = 180
-        self.top_right_limit = 460
+        self.top_left_limit = 150
+        self.top_right_limit = 490
         self.src_pixels = np.asarray(
             [[self.top_left_limit, self.top_limit],
              [self.top_right_limit, self.top_limit],
@@ -119,7 +119,7 @@ class LaneDetector:
         return warped_img
     
     def get_hist(self, img):
-        hist = np.sum(img[img.shape[0] - 50:img.shape[0], :], axis=0)
+        hist = np.sum(img[(self.bottom_limit+50):self.bottom_limit, :], axis=0)
         return hist
 
     def filter(self, img):
@@ -191,7 +191,7 @@ class LaneDetector:
 
     def blur_mask(self, mask_img):
         med_img = cv2.medianBlur(mask_img, 5)
-        gauss_img = cv2.GaussianBlur(med_img, (5,5), 0)
+        gauss_img = cv2.GaussianBlur(med_img, (13,13), 0)
         gauss_binary = cv2.inRange(gauss_img, 80, 255)
         return gauss_img
 
@@ -218,32 +218,30 @@ class LaneDetector:
         return white_mask
 
     def isolate_green(self, img):
+        #low_threshold = np.array([155*255/360/2, 25*255/100, 60*255/100], dtype = np.uint8)
+        #high_threshold = np.array([170*255/360/2, 40*255/100, 70*255/100], dtype = np.uint8)
         # Hue : gimp (0 : 360), cv2 (0 : 179)
         # Sat : gimp (0 : 100), cv2 (0 : 255)
         # Val : gimp (0 : 100), cv2 (0 : 255)
-        low_threshold = np.array([150 // 2, 20 * 255 // 100, 0 * 255 // 100], dtype = np.uint8)
-        high_threshold = np.array([175 // 2, 40 * 255 // 100, 100 * 255 // 100], dtype = np.uint8)
+        low_threshold = np.array([150 // 2, 0, 0], dtype = np.uint8)
+        high_threshold = np.array([175 // 2, 255, 255], dtype = np.uint8)
         green_mask = cv2.inRange(img, low_threshold, high_threshold)
+        print green_mask
         return green_mask
     def sliding_window(self, img, world_coords = False):
         nwindows = 7
         margin = 50
-        buffer = 0
+        buffer = 100
         minpix = 1
-        
+
         histogram = self.get_hist(img)
         midpoint = int(histogram.shape[0] / 2)
         leftx_base = np.argmax(histogram[:midpoint-buffer])
-        print 'Starting left point'
-        print leftx_base
         rightx_base = np.argmax(histogram[midpoint+buffer:]) + midpoint + buffer
-        print 'Starting right point'
-        print rightx_base
         leftx_current = leftx_base
         rightx_current = rightx_base
 
-        window_height = np.int(img.shape[0]) // nwindows
-
+        window_height = np.int(img.shape[0] / nwindows)
         nonzero = img.nonzero()
         nonzero_y = np.array(nonzero[0])
         nonzero_x = np.array(nonzero[1])
@@ -252,30 +250,15 @@ class LaneDetector:
         right_lane_inds = []
 
         for window in range(nwindows):
-            print 'Window : ' + str(window)
             y_low = img.shape[0] - (window+1)*window_height
-            print 'y bounds'
-            print y_low
             y_high = img.shape[0] - window*window_height
-            print y_high
             xleft_low = leftx_current - margin
             xleft_high = leftx_current + margin
-            print 'Left x bounds'
-            print xleft_low
-            print xleft_high
-
             xright_low = rightx_current - margin
             xright_high = rightx_current + margin
-            print 'Right x bounds'
-            print xright_low
-            print xright_high
 
             good_left_inds = ((nonzero_y >= y_low) & (nonzero_y < y_high) & (nonzero_x >= xleft_low) & (nonzero_x < xleft_high)).nonzero()[0]
             good_right_inds = ((nonzero_y >= y_low) & (nonzero_y < y_high) & (nonzero_x >= xright_low) & (nonzero_x < xright_high)).nonzero()[0]
-            
-            print good_left_inds
-            print good_right_inds
-
             left_lane_inds.append(good_left_inds)
             right_lane_inds.append(good_right_inds)
 
