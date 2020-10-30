@@ -21,13 +21,15 @@ class lane_detector:
         """ Set up all needed params """
         height = 480
         width = 640
+        
+        pitch = np.deg2rad(5)
 
         h = 0.13
         t = np.asarray([0, 0, -h], np.float32)
         # Map from world frame to camera frame
         R = np.asarray([[0, -1, 0],
-                        [np.sin(p), 0, -1*np.cos(p)],
-                        [1*np.cos(p), 0, np.sin(p)]], np.float32)
+                        [np.sin(pitch), 0, -1*np.cos(pitch)],
+                        [1*np.cos(pitch), 0, np.sin(pitch)]], np.float32)
         
         K = np.asarray([[617.2716, 0, 327.2818],
                         [0, 617.1263, 245.0939],
@@ -83,15 +85,7 @@ class lane_detector:
 		p.orientation.z = z
 		p.orientation.w = w
 		pose.pose = p
-		"""
-		pose.pose.position.x = x
-		pose.pose.position.y = y
-		pose.pose.position.z = 0
-		pose.pose.orientation.x = 0
-		pose.pose.orientation.y = 0
-		pose.pose.orientaion.z = 0
-		pose.pose.orientation.w = 1
-		"""
+
 		pose.header = data.header
                 path.poses.append(pose)
 	    

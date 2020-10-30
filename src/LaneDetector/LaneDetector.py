@@ -134,27 +134,6 @@ class LaneDetector:
         #SOBEL_MINIMUM_THRESHOLD = 25
         #S_MINIMUM_THRESHOLD = 100
         
-        """
-        hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
-        h_channel = hls[:,:,0]
-        print np.mean(h_channel)
-        l_channel = hls[:,:,1]
-        print np.mean(l_channel)
-        s_channel = hls[:,:,2]
-        print np.mean(s_channel)
-
-        sobel_x = cv2.Sobel(l_channel, cv2.CV_64F, 1, 1)
-        sobel_x = np.absolute(sobel_x)
-        scaled_sobel_x = np.uint8(255 * sobel_x / np.max(sobel_x))
-        sobel_thresholded = np.zeros_like(scaled_sobel_x)
-        sobel_thresholded[(scaled_sobel_x >= SOBEL_MINIMUM_THRESHOLD)] = 1
-
-        s_thresholded = np.zeros_like(s_channel)
-        s_thresholded[(s_channel >= S_MINIMUM_THRESHOLD)] = 1
-
-        combined_thresholded = np.zeros_like(sobel_thresholded)
-        combined_thresholded[(sobel_thresholded == 1) | (s_thresholded == 1)] = 1
-        """
         # Try to find white and yellow regions for lanes
         hsv_mask = self.color_threshold(img)
 
