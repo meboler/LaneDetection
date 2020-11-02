@@ -23,12 +23,8 @@ class LaneDetector:
     """
     
     def __init__(self, R = np.eye(3), t = np.zeros((3)), camera_params = CameraParams()):
-        self.R = R
-        self.t = t
-        
-        self.T = np.eye(4)
-        self.T[0:3,0:3] = self.R
-        self.T[0:3,3] = self.t
+        self.R = R # R world -> camera
+        self.t = t # position of camera in world
         
         self.params = camera_params
         
@@ -37,9 +33,11 @@ class LaneDetector:
     def config(self):
         # Get ground plane info
         ground_plane_normal_w = np.array([[0],[0],[1]])
-        self.normal_c = np.dot(self.R, ground_plane_normal_w)
+        self.normal_c = np.dot(self.R, ground_plane_normal_w) # ground plane normal rotated into camera frame
+
         origin_w = np.asarray([[0],[0],[0]], np.float32)
         origin_c = self.map_w_to_c(origin_w)
+
         self.dot_const_c = np.dot(self.normal_c.T, origin_c)
 
         lane_vec_c = np.dot(self.R, np.asarray([[1],[0],[0]], np.float32))
@@ -51,14 +49,14 @@ class LaneDetector:
         width = self.params.width
         self.ipm_top = self.vanishing_point[1] + 20 # experiment
 
-        self.bottom_limit = 340
-        self.top_limit = 250 # 260
+        self.bottom_limit = 480
+        self.top_limit = 0 # 260
         self.bottom_left_limit = 0
         self.bottom_right_limit = 640
         #self.top_left_limit = 180
-        self.top_left_limit = 150
+        self.top_left_limit = 0
         #self.top_right_limit = 460
-        self.top_right_limit = 490
+        self.top_right_limit = 640
         self.src_pixels = np.asarray(
             [[self.top_left_limit, self.top_limit],
              [self.top_right_limit, self.top_limit],
@@ -112,6 +110,14 @@ class LaneDetector:
                                          flags=cv2.INTER_LINEAR)
 
         return warped_img
+    
+    def perspective_transform(self, pts):
+        warped_pts = cv2.perspectiveTransform(pts.reshape(-1, 1, 2), self.M)
+        return warped_pts
+    
+    def inverse_perspective_transform(self, pts):
+        warped_pts = cv2.perspectiveTransform(pts.reshape(-1, 1, 2), self.M_inv)
+        return warped_pts
 
     def inverse_perspective_warp(self, img):
         warped_img = cv2.warpPerspective(img,
@@ -202,8 +208,8 @@ class LaneDetector:
         # Hue : gimp (0 : 360), cv2 (0 : 179)
         # Sat : gimp (0 : 100), cv2 (0 : 255)
         # Val : gimp (0 : 100), cv2 (0 : 255)
-        low_threshold = np.array([150 // 2, 15 * 255 // 100, 0 * 255 // 100], dtype = np.uint8)
-        high_threshold = np.array([180 // 2, 40 * 255 // 100, 100 * 255 // 100], dtype = np.uint8)
+        low_threshold = np.array([155 // 2, 15 * 255 // 100, 0 * 255 // 100], dtype = np.uint8)
+        high_threshold = np.array([175 // 2, 55 * 255 // 100, 100 * 255 // 100], dtype = np.uint8)
         green_mask = cv2.inRange(img, low_threshold, high_threshold)
         return green_mask
     def sliding_window(self, img, world_coords = False):
@@ -307,6 +313,7 @@ class LaneDetector:
         return center_fit
     """
     def fit_center(self, img):
+        # This fit is in the frame of the input image (usually birds-eye), so transform points after fitting
         nwindows = 10
         margin = 75
         buffer = 0
@@ -326,6 +333,7 @@ class LaneDetector:
         nonzero_x = np.array(nonzero[1])
 
         fit = np.polyfit(nonzero_y, nonzero_x, 2)
+        #fit = self.ransac_polyfit(nonzero_x, nonzero_y)
 
         return fit
 
@@ -377,13 +385,15 @@ class LaneDetector:
 
     def generate_waypoints(self, unwarped_img, center_fit):
         # waypoints are of form (x, y, yaw)
-        plot_y = np.linspace(0, 480, 50)
+        plot_y = np.linspace(self.top_limit, self.bottom_limit, 50)
         plot_y = plot_y[::-1]
-        # Note: This polynomial works in 
         center_fit_x = center_fit[0]*plot_y**2 + center_fit[1]*plot_y + center_fit[2]
 
-        center_pts = np.vstack([center_fit_x, plot_y])
-        world_pts = self.pixel_to_world(center_pts)
+        center_pts = np.vstack([center_fit_x, plot_y]).T
+        center_pts_unwarped = self.perspective_transform(center_pts.reshape(-1, 1, 2))
+
+        world_pts = self.pixel_to_world(np.squeeze(center_pts_unwarped.T))
+
         n_pts = world_pts.shape[1]
         n_out = n_pts - 1
         angles_out = np.zeros((n_out))
@@ -415,19 +425,20 @@ class LaneDetector:
         a_v = self.params.FOV_v/2
 
     def map_w_to_c(self, coords):
-        return np.dot(self.R, coords_h_to_coords_transform(
-            np.dot(self.T, coords_to_h_transform(coords))))
+        return np.dot(self.R, coords - self.t)
 
     def normalize_coords(self, coords):
         K_inv = np.linalg.inv(self.K)
         coords_h = coords_to_h_transform(coords)
 
     def pixel_to_world(self,pix_coords):
+        
         # Take pixels in camera image and move them to local nav frame
         pix_h = coords_to_h_transform(pix_coords)
         pix_norm = np.dot(np.linalg.inv(self.params.K), pix_h)
         
         # Here we get the 3D location of points in camera frame
+        # I have no idea where this came from but it works and it's fast.
         points_c = (self.dot_const_c / np.dot(self.normal_c.T, pix_norm)) * pix_norm
         
         # And then we convert them to the world (local NWU) frame
@@ -438,7 +449,7 @@ class LaneDetector:
         besterr = np.inf
         bestfit = None
         for kk in range(k):
-            maybeinliers = np.random.randint(len(x), size=10)
+            maybeinliers = np.random.randint(len(x), size=100)
             maybemodel = np.polyfit(x[maybeinliers], y[maybeinliers], 2)
             alsoinliers = np.abs(np.polyval(maybemodel, x)-y) < t
             bettermodel = np.polyfit(x[alsoinliers], y[alsoinliers], 2)

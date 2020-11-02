@@ -5,7 +5,7 @@ import LaneDetector
 if __name__ == '__main__':
     np.set_printoptions(precision=5)
     np.set_printoptions(suppress=True)
-    filename = "f1tenth2.jpg" 
+    filename = "f1tenth4.jpg" 
     img = cv2.imread(filename)
     print img.size
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -15,14 +15,14 @@ if __name__ == '__main__':
     # Cropping out upper half b/c doesn't map to road
     cropped_img = img[:, 0 : width//2]
 
-    h = 0.13 # meters
-    t = np.asarray([0, 0, -h], np.float32)
+    h = 0.35 # meters
+    t = np.asarray([[0], [0], [h]], np.float32)
     # Map from world frame to camera frame
-    pitch = 5 # deg
+    pitch = 30 # deg
     p = np.deg2rad(pitch)
     R = np.asarray([[0, -1, 0],
-                    [np.sin(p), 0, -1*np.cos(p)],
-                    [1*np.cos(p), 0, np.sin(p)]], np.float32)
+                    [-np.sin(p), 0, -1*np.cos(p)],
+                    [1*np.cos(p), 0, -np.sin(p)]], np.float32)
 
     K = np.asarray([[617.2716, 0, 327.2818],
                     [0, 617.1263, 245.0939],
@@ -40,20 +40,18 @@ if __name__ == '__main__':
     params.width = width
 
     det = LaneDetector.LaneDetector(R, t, params)
-    for i in range(1000):
+    for i in range(1):
         mask_img = det.filter(img)
         blur_img = det.blur_mask(mask_img)
         warped_img = det.perspective_warp(blur_img)
-        warped_img = warped_img[:, 0 : width // 2]
+        #warped_img = warped_img[:, 0 : width // 2]
 
         center = det.fit_center(warped_img)
 
         waypoints = det.generate_waypoints(img, center)
     
-    """
-    print "Center fit waypoints"
-    print waypoints
 
+    
     plt.figure(1)
     plt.subplot(321)
     plt.imshow(img)
@@ -62,7 +60,7 @@ if __name__ == '__main__':
     plt.imshow(det.perspective_warp(img))
 
     plt.subplot(323)
-    plt.imshow(hsv_mask_img, cmap='gray')
+    plt.imshow(mask_img, cmap='gray')
 
     plt.subplot(325)
     plt.imshow(warped_img, cmap='gray')
@@ -70,5 +68,5 @@ if __name__ == '__main__':
     plt.subplot(326)
     plt.imshow(det.draw_lane(img, center))
     plt.show()
-    """
+    
     
