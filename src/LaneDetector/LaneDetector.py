@@ -50,7 +50,7 @@ class LaneDetector:
         self.ipm_top = self.vanishing_point[1] + 20 # experiment
 
         self.bottom_limit = 480
-        self.top_limit = 120 # 260
+        self.top_limit = 150 # 260
         self.bottom_left_limit = 0
         self.bottom_right_limit = 640
         #self.top_left_limit = 180
@@ -385,7 +385,7 @@ class LaneDetector:
 
     def generate_waypoints(self, unwarped_img, center_fit):
         # waypoints are of form (x, y, yaw)
-        plot_y = np.linspace(self.top_limit, self.bottom_limit, 50)
+        plot_y = np.linspace(0, 480, 50)
         plot_y = plot_y[::-1]
         center_fit_x = center_fit[0]*plot_y**2 + center_fit[1]*plot_y + center_fit[2]
 

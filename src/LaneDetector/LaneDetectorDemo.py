@@ -7,7 +7,6 @@ if __name__ == '__main__':
     np.set_printoptions(suppress=True)
     filename = "f1tenth4.jpg" 
     img = cv2.imread(filename)
-    print img.size
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     height = img.shape[0]
     width = img.shape[1]
@@ -41,11 +40,8 @@ if __name__ == '__main__':
         mask_img = det.filter(img)
         blur_img = det.blur_mask(mask_img)
         warped_img = det.perspective_warp(blur_img)
-        #warped_img = warped_img[:, 0 : width // 2]
         center = det.fit_center(warped_img)
         waypoints = det.generate_waypoints(img, center)
-    
-
     
     plt.figure(1)
     plt.subplot(321)
