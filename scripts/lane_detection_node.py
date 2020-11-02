@@ -90,7 +90,7 @@ class lane_detector:
             self.visualization_pub.publish(self.bridge.cv2_to_imgmsg(lane_image, 'rgb8'))
         except:
             print("Failed to generate path")
-	    rospy.logerr("LOLNO")
+            rospy.logerr("LOLNO")   
         # Publish messages
         self.mask_pub.publish(self.bridge.cv2_to_imgmsg(warped_image, 'mono8'))
 
