@@ -13,7 +13,7 @@ if __name__ == '__main__':
     width = img.shape[1]
 
     # Cropping out upper half b/c doesn't map to road
-    cropped_img = img[img.shape[0]/2 : -1, :]
+    cropped_img = img[:, 0 : width//2]
 
     h = 0.13 # meters
     t = np.asarray([0, 0, -h], np.float32)
@@ -40,11 +40,19 @@ if __name__ == '__main__':
     params.width = width
 
     det = LaneDetector.LaneDetector(R, t, params)
-    hsv_mask_img = det.color_threshold(img)
-    gradient_mask_img = det.gradient_threshold(img)
-    mask_img = det.filter(img)
-    blur_img = det.blur_mask(hsv_mask_img)
-    warped_img = det.perspective_warp(blur_img)
+    for i in range(1000):
+        mask_img = det.filter(img)
+        blur_img = det.blur_mask(mask_img)
+        warped_img = det.perspective_warp(blur_img)
+        warped_img = warped_img[:, 0 : width // 2]
+
+        center = det.fit_center(warped_img)
+
+        waypoints = det.generate_waypoints(img, center)
+    
+    """
+    print "Center fit waypoints"
+    print waypoints
 
     plt.figure(1)
     plt.subplot(321)
@@ -56,16 +64,11 @@ if __name__ == '__main__':
     plt.subplot(323)
     plt.imshow(hsv_mask_img, cmap='gray')
 
-    plt.subplot(324)
-    plt.imshow(gradient_mask_img, cmap='gray')
-
     plt.subplot(325)
     plt.imshow(warped_img, cmap='gray')
 
-
-    (left, center, right) = det.sliding_window(warped_img)
-    waypoints = det.generate_waypoints(img, center)
-
-    plt.figure(2)
-    plt.imshow(det.draw_lanes(img, left, right))
+    plt.subplot(326)
+    plt.imshow(det.draw_lane(img, center))
     plt.show()
+    """
+    

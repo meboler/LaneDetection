@@ -139,12 +139,12 @@ class LaneDetector:
 
         # Because of light, white will not get picked up all the time
         # We fallback to a gradient check and binary or them
-        gradient_mask = self.gradient_threshold(img)
+        #gradient_mask = self.gradient_threshold(img)
 
         # Now also perform gradient thresholding
         # ...
-        mask = cv2.bitwise_or(hsv_mask, gradient_mask)
-        return mask
+        #mask = cv2.bitwise_or(hsv_mask, gradient_mask)
+        return hsv_mask
 
     def gradient_threshold(self, img):
         gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
@@ -291,6 +291,43 @@ class LaneDetector:
         center_fit_ = np.array([(l_a+r_a)/2, (l_b+r_b)/2, (l_c+r_c)/2])
         
         return (left_fit_, center_fit_, right_fit_)
+    
+    """
+    def fit_center(self, warped_img, use_ransac=False):
+        # TURBO SPEED BUT PROBABLY NOT V ACCURATE
+        nonzero = warped_img.nonzero()
+        nonzero_y = np.array(nonzero[0])
+        nonzero_x = np.array(nonzero[1])
+
+        if use_ransac:
+            center_fit = self.ransac_polyfit(nonzero_y, nonzero_x)
+        else:
+            center_fit = np.polyfit(nonzero_y, nonzero_x, 2)
+        
+        return center_fit
+    """
+    def fit_center(self, img):
+        nwindows = 10
+        margin = 75
+        buffer = 0
+        minpix = 1
+        
+        histogram = self.get_hist(img)
+        midpoint = int(histogram.shape[0] / 2)
+        leftx_base = np.argmax(histogram[:midpoint-buffer])
+        rightx_base = np.argmax(histogram[midpoint+buffer:]) + midpoint + buffer
+
+        x_current = np.argmax(histogram)
+
+        window_height = np.int(img.shape[0]) // nwindows
+
+        nonzero = img.nonzero()
+        nonzero_y = np.array(nonzero[0])
+        nonzero_x = np.array(nonzero[1])
+
+        fit = np.polyfit(nonzero_y, nonzero_x, 2)
+
+        return fit
 
     def draw_lanes(self, unwarped_img, left_fit, right_fit, world_coords = False):
         if world_coords is True:
@@ -319,10 +356,28 @@ class LaneDetector:
             inv_perspective_img = self.inverse_perspective_warp(color_img)
             inv_perspective_img = cv2.addWeighted(unwarped_img, 1, inv_perspective_img, 0.7, 0)
             return inv_perspective_img
+    
+    def draw_lane(self, img, center_fit):
+        plot_y = np.linspace(0, 480, 50)
+        plot_y = plot_y[::-1]
+
+        center_fit_x = center_fit[0]*plot_y**2 + center_fit[1]*plot_y + center_fit[2]
+
+        draw_points = (np.asarray([center_fit_x, plot_y]).T).astype(np.int32)
+
+        color_img = np.zeros_like(img)
+
+        for x in draw_points:
+            cv2.circle(color_img, tuple(x), 5, (255, 0, 0), -1)
+        
+        inv_perspective_img = self.inverse_perspective_warp(color_img)
+        inv_perspective_img = cv2.addWeighted(img, 1, inv_perspective_img, 0.7, 0)
+        return inv_perspective_img
+
 
     def generate_waypoints(self, unwarped_img, center_fit):
         # waypoints are of form (x, y, yaw)
-        plot_y = np.linspace(self.top_limit, self.bottom_limit, 50)
+        plot_y = np.linspace(0, 480, 50)
         plot_y = plot_y[::-1]
         # Note: This polynomial works in 
         center_fit_x = center_fit[0]*plot_y**2 + center_fit[1]*plot_y + center_fit[2]
@@ -383,7 +438,7 @@ class LaneDetector:
         besterr = np.inf
         bestfit = None
         for kk in range(k):
-            maybeinliers = np.random.randint(len(x), size=len(x)//(3/2))
+            maybeinliers = np.random.randint(len(x), size=10)
             maybemodel = np.polyfit(x[maybeinliers], y[maybeinliers], 2)
             alsoinliers = np.abs(np.polyval(maybemodel, x)-y) < t
             bettermodel = np.polyfit(x[alsoinliers], y[alsoinliers], 2)
