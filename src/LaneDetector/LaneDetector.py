@@ -332,8 +332,8 @@ class LaneDetector:
         nonzero_y = np.array(nonzero[0])
         nonzero_x = np.array(nonzero[1])
 
-        fit = np.polyfit(nonzero_y, nonzero_x, 2)
-        #fit = self.ransac_polyfit(nonzero_x, nonzero_y)
+        #fit = np.polyfit(nonzero_y, nonzero_x, 2)
+        fit = self.ransac_polyfit(nonzero_y, nonzero_x)
 
         return fit
 
@@ -445,11 +445,11 @@ class LaneDetector:
         xy_w = np.dot(np.linalg.inv(self.R), points_c)[:2,:]
         return xy_w
 
-    def ransac_polyfit(self, x, y, k=10, t=0.5):
+    def ransac_polyfit(self, x, y, k=50, t=3):
         besterr = np.inf
         bestfit = None
         for kk in range(k):
-            maybeinliers = np.random.randint(len(x), size=100)
+            maybeinliers = np.random.randint(len(x), size=50)
             maybemodel = np.polyfit(x[maybeinliers], y[maybeinliers], 2)
             alsoinliers = np.abs(np.polyval(maybemodel, x)-y) < t
             bettermodel = np.polyfit(x[alsoinliers], y[alsoinliers], 2)
