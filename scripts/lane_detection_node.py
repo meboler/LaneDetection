@@ -25,11 +25,11 @@ class lane_detector:
         pitch = np.deg2rad(30)
 
         h = 0.35
-        t = np.asarray([0, 0, h], np.float32)
+        t = np.asarray([[0], [0], [h]], np.float32)
         # Map from world frame to camera frame
         R = np.asarray([[0, -1, 0],
-                    [-np.sin(p), 0, -1*np.cos(p)],
-                    [1*np.cos(p), 0, -np.sin(p)]], np.float32)
+                    [-np.sin(pitch), 0, -1*np.cos(pitch)],
+                    [1*np.cos(pitch), 0, -np.sin(pitch)]], np.float32)
         
         K = np.asarray([[617.2716, 0, 327.2818],
                         [0, 617.1263, 245.0939],
@@ -60,9 +60,7 @@ class lane_detector:
         mask_img = self.Detector.filter(cv_img)
         blur_img = self.Detector.blur_mask(mask_img)
         warped_image = self.Detector.perspective_warp(blur_img)
-        
         try:
-            #(left, center, right) = self.Detector.sliding_window(warped_image)
             center = self.Detector.fit_center(warped_image)
             waypoints = self.Detector.generate_waypoints(cv_img, center)
             # Generate publishing stuff
@@ -76,19 +74,18 @@ class lane_detector:
                 theta = waypoints[2,i]
                 w = np.cos(theta/2)
                 z = np.sin(theta/2)
-		        pose = PoseStamped()
-		        p = Pose()
-		        p.position.x = x
-		        p.position.y = y
-		        p.position.z = 0
-		        p.orientation.x = 0.0
-		        p.orientation.y = 0.0
-		        p.orientation.z = z
-		        p.orientation.w = w
-		        pose.pose = p
-		        pose.header = data.header
+                pose = PoseStamped()
+                p = Pose()
+                p.position.x = x
+                p.position.y = y
+                p.position.z = 0
+                p.orientation.x = 0.0
+                p.orientation.y = 0.0
+                p.orientation.z = z
+                p.orientation.w = w
+                pose.pose = p
+                pose.header = data.header
                 path.poses.append(pose)
-	    
             self.nav_pub.publish(path)
             self.visualization_pub.publish(self.bridge.cv2_to_imgmsg(lane_image, 'rgb8'))
         except:
