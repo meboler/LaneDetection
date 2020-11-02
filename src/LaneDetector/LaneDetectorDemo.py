@@ -12,9 +12,6 @@ if __name__ == '__main__':
     height = img.shape[0]
     width = img.shape[1]
 
-    # Cropping out upper half b/c doesn't map to road
-    cropped_img = img[:, 0 : width//2]
-
     h = 0.35 # meters
     t = np.asarray([[0], [0], [h]], np.float32)
     # Map from world frame to camera frame
@@ -45,9 +42,7 @@ if __name__ == '__main__':
         blur_img = det.blur_mask(mask_img)
         warped_img = det.perspective_warp(blur_img)
         #warped_img = warped_img[:, 0 : width // 2]
-
         center = det.fit_center(warped_img)
-
         waypoints = det.generate_waypoints(img, center)
     
 

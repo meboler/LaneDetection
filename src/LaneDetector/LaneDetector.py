@@ -50,7 +50,7 @@ class LaneDetector:
         self.ipm_top = self.vanishing_point[1] + 20 # experiment
 
         self.bottom_limit = 480
-        self.top_limit = 0 # 260
+        self.top_limit = 120 # 260
         self.bottom_left_limit = 0
         self.bottom_right_limit = 640
         #self.top_left_limit = 180
@@ -71,8 +71,8 @@ class LaneDetector:
         self.dst_pixels = np.asarray(
             [[self.bottom_left_limit, 0], #TL
              [self.bottom_right_limit, 0], #TR
-             [self.bottom_left_limit, height], #BL
-             [self.bottom_right_limit, height]], #BR
+             [120, height], #BL
+             [520, height]], #BR
             np.float32).T
         (M, M_inv) = self.compute_IPM_matrices(self.src_pixels.T,
                                                self.dst_pixels.T)
