@@ -208,8 +208,8 @@ class LaneDetector:
         # Hue : gimp (0 : 360), cv2 (0 : 179)
         # Sat : gimp (0 : 100), cv2 (0 : 255)
         # Val : gimp (0 : 100), cv2 (0 : 255)
-        low_threshold = np.array([155 // 2, 15 * 255 // 100, 0 * 255 // 100], dtype = np.uint8)
-        high_threshold = np.array([175 // 2, 55 * 255 // 100, 100 * 255 // 100], dtype = np.uint8)
+        low_threshold = np.array([155 // 2, 30 * 255 // 100, 50 * 255 // 100], dtype = np.uint8)
+        high_threshold = np.array([175 // 2, 60 * 255 // 100, 100 * 255 // 100], dtype = np.uint8)
         green_mask = cv2.inRange(img, low_threshold, high_threshold)
         return green_mask
     def sliding_window(self, img, world_coords = False):
@@ -332,8 +332,8 @@ class LaneDetector:
         nonzero_y = np.array(nonzero[0])
         nonzero_x = np.array(nonzero[1])
 
-        #fit = np.polyfit(nonzero_y, nonzero_x, 2)
-        fit = self.ransac_polyfit(nonzero_y, nonzero_x)
+        fit = np.polyfit(nonzero_y, nonzero_x, 2)
+        #fit = self.ransac_polyfit(nonzero_y, nonzero_x)
 
         return fit
 

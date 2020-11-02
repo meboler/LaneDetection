@@ -5,7 +5,7 @@ import LaneDetector
 if __name__ == '__main__':
     np.set_printoptions(precision=5)
     np.set_printoptions(suppress=True)
-    filename = "f1tenth4.jpg" 
+    filename = "f1tenth5.jpg" 
     img = cv2.imread(filename)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     height = img.shape[0]
