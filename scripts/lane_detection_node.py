@@ -25,9 +25,10 @@ class lane_detector:
         h = 1.518 # meters
         t = np.asarray([0, 0, -h], np.float32)
         # Map from world frame to camera frame
+        pitch = np.deg2rad(5) # positive tilts down
         R = np.asarray([[0, -1, 0],
-                        [0, 0, -1],
-                        [1, 0, 0]], np.float32)
+                        [np.sin(pitch), 0, -1*np.cos(pitch)],
+                        [1*np.cos(pitch), 0, np.sin(pitch)]], np.float32)
         
         K = np.asarray([[617.2716, 0, 327.2818],
                         [0, 617.1263, 245.0939],
@@ -51,11 +52,20 @@ class lane_detector:
         # publish top down view for visualization
         self.visualization_pub = rospy.Publisher("lane_detector/visualization", Image)
         self.mask_pub = rospy.Publisher("lane_detector/mask", Image)
+        self.hsv_pub = rospy.Publisher("lane_detector/color_threshold", Image)
+        self.grad_pub = rospy.Publisher("lane_detector/gradient_threshold", Image)
+
+
         self.nav_pub = rospy.Publisher("lane_detector/waypoints", Path) 
     def callback(self, data):
         cv_img = self.bridge.imgmsg_to_cv2(data, "rgb8")
         # Run pipeline
-        mask_img = self.Detector.filter(cv_img)
+
+        hsv_mask = self.Detector.color_threshold(cv_img)
+        grad_mask = self.Detector.gradient_threshold(cv_img)
+
+        mask_img = cv.bitwise_or(hsv_mask, grad_mask)
+
         blur_img = self.Detector.blur_mask(mask_img)
         warped_image = self.Detector.perspective_warp(blur_img)
         try:
@@ -72,27 +82,17 @@ class lane_detector:
                 theta = waypoints[2,i]
                 w = np.cos(theta/2)
                 z = np.sin(theta/2)
-		
-		pose = PoseStamped()
-		p = Pose()
-		p.position.x = x
-		p.position.y = y
-		p.position.z = 0
-		p.orientation.x = 0.0
-		p.orientation.y = 0.0
-		p.orientation.z = z
-		p.orientation.w = w
-		pose.pose = p
-		"""
-		pose.pose.position.x = x
-		pose.pose.position.y = y
-		pose.pose.position.z = 0
-		pose.pose.orientation.x = 0
-		pose.pose.orientation.y = 0
-		pose.pose.orientaion.z = 0
-		pose.pose.orientation.w = 1
-		"""
-		pose.header = data.header
+                pose = PoseStamped()
+                p = Pose()
+                p.position.x = x
+                p.position.y = y
+                p.position.z = 0
+                p.orientation.x = 0.0
+                p.orientation.y = 0.0
+                p.orientation.z = z
+                p.orientation.w = w
+                pose.pose = p
+		        pose.header = data.header
                 path.poses.append(pose)
 	    
             self.nav_pub.publish(path)
@@ -101,7 +101,8 @@ class lane_detector:
             print("Failed to generate path")
 	    rospy.logerr("LOLNO")
         # Publish messages
-        self.mask_pub.publish(self.bridge.cv2_to_imgmsg(warped_image, 'mono8'))
+        self.hsv_pub.publish(self.bridge.cv2_to_imgmsg(hsv_mask, 'mono8'))
+        self.grad_pub.publish(self.bridge.cv2_to_imgmsg(grad_mask, 'mono8'))
 
 def main(args):
     det = lane_detector()
