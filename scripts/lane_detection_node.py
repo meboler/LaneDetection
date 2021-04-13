@@ -27,8 +27,8 @@ class lane_detector:
         # Map from world frame to camera frame
         pitch = np.deg2rad(5) # positive tilts down
         R = np.asarray([[0, -1, 0],
-                        [np.sin(pitch), 0, -1*np.cos(pitch)],
-                        [1*np.cos(pitch), 0, np.sin(pitch)]], np.float32)
+                        [np.sin(pitch), 0, -np.cos(pitch)],
+                        [np.cos(pitch), 0, np.sin(pitch)]], np.float32)
         
         K = np.asarray([[617.2716, 0, 327.2818],
                         [0, 617.1263, 245.0939],
@@ -47,11 +47,8 @@ class lane_detector:
         self.Detector = LaneDetector(R, t, params)
         # TODO: Configure via json
         self.image_sub = rospy.Subscriber("camera/color/image_raw", Image, self.callback)
-        # publish coefficients of spline as array
-        #self.spline_pub = rospy.Publisher("lane_splines", Float32MultiArray)
-        # publish top down view for visualization
+
         self.visualization_pub = rospy.Publisher("lane_detector/visualization", Image)
-        self.mask_pub = rospy.Publisher("lane_detector/mask", Image)
         self.hsv_pub = rospy.Publisher("lane_detector/color_threshold", Image)
         self.grad_pub = rospy.Publisher("lane_detector/gradient_threshold", Image)
 
@@ -99,7 +96,7 @@ class lane_detector:
             self.visualization_pub.publish(self.bridge.cv2_to_imgmsg(lane_image, 'rgb8'))
         except:
             print("Failed to generate path")
-	    rospy.logerr("LOLNO")
+            
         # Publish messages
         self.hsv_pub.publish(self.bridge.cv2_to_imgmsg(hsv_mask, 'mono8'))
         self.grad_pub.publish(self.bridge.cv2_to_imgmsg(grad_mask, 'mono8'))

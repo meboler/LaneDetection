@@ -166,17 +166,17 @@ class LaneDetector:
         return gradient_mask
         # return mask
 
-    def gradient_threshold(self, img):
+    def gradient_threshold(self, img, min=5, max=120):
         gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-        return self.abs_sobel(gray_img)
+        return self.abs_sobel(gray_img, min, max)
 
-    def abs_sobel(self, img, x_dir=True):
+    def abs_sobel(self, img, min, max, x_dir=True):
         sobel = cv2.Sobel(img, cv2.CV_64F, x_dir, not x_dir, 15) 
         sobel_abs = np.absolute(sobel)
         sobel_scaled = np.uint8(255 * sobel_abs / np.max(sobel_abs))
         gradient_mask = np.zeros_like(sobel_scaled)
-        thresh_min = np.array([5], dtype = np.uint8)
-        thresh_max = np.array([120], dtype = np.uint8)
+        thresh_min = np.array([min], dtype = np.uint8)
+        thresh_max = np.array([max], dtype = np.uint8)
         gradient_mask = cv2.inRange(sobel_scaled, thresh_min, thresh_max)
         return gradient_mask
 
@@ -197,15 +197,22 @@ class LaneDetector:
         return gauss_img
 
     def color_threshold(self, img):
+        """
+        Opencv convention:
+        Hue: [0, 180]
+        Saturation: [0, 255]
+        Value: [0, 255]
+        """
         hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
         hsv_mask = cv2.bitwise_or(self.isolate_white(hsv), self.isolate_yellow(hsv))
         return hsv_mask
 
     def isolate_yellow(self, img):
+        # Yellow is approximately [40, 70] in the [0, 260] hue range
         # img in HSV
-        low_threshold = np.array([20, 100, 100], dtype = np.uint8)
+        low_threshold = np.array([20, 120, 120], dtype = np.uint8)
         #low_threshold = np.array([25*255/360/2, 25*255/100, 25*255/100], dtype = np.uint8)
-        high_threshold = np.array([45, 255, 255], dtype = np.uint8)
+        high_threshold = np.array([35, 255, 255], dtype = np.uint8)
         #high_threshold = np.array([65*255/360/2, 70*255/100, 75*255/100], dtype = np.uint8)
         yellow_mask = cv2.inRange(img, low_threshold, high_threshold)
         return yellow_mask
@@ -213,7 +220,7 @@ class LaneDetector:
     def isolate_white(self, img):
         # img in HSV
         low_threshold = np.array([0*255/360/2, 0*255/100, 25*255/100], dtype = np.uint8)
-        high_threshold = np.array([360*255/360/2, 40*255/100, 40*255/100], dtype = np.uint8)
+        high_threshold = np.array([360*255/360/2, 32*255/100, 40*255/100], dtype = np.uint8)
         white_mask = cv2.inRange(img, low_threshold, high_threshold)
         return white_mask
     
